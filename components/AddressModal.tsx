@@ -5,6 +5,7 @@ import { X, MapPin, Navigation, Loader2, Search, Clock, CheckCircle2, Mic } from
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { BRANCHES, Branch } from '../constants';
+import { toast } from 'sonner';
 
 interface Props {
   isOpen: boolean;
@@ -24,6 +25,9 @@ const AddressModal: React.FC<Props> = ({ isOpen, onClose, onConfirm }) => {
   const [currentLatLng, setCurrentLatLng] = useState<[number, number]>([41.311081, 69.240562]);
   const [canConfirm, setCanConfirm] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isListeningSearch, setIsListeningSearch] = useState(false);
+  const [isListeningComment, setIsListeningComment] = useState(false);
   
   // Details Form State
   const [details, setDetails] = useState({
@@ -32,6 +36,88 @@ const AddressModal: React.FC<Props> = ({ isOpen, onClose, onConfirm }) => {
     apartment: '',
     comment: ''
   });
+
+  const handleSearchSubmit = async (queryText?: string) => {
+    const q = (queryText !== undefined ? queryText : searchQuery).trim();
+    if (!q) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', O\'zbekiston')}&limit=1`, {
+        headers: { 'Accept-Language': 'uz-UZ,uz;q=0.9,en;q=0.8' }
+      });
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lon = parseFloat(data[0].lon);
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.flyTo([lat, lon], 18);
+          updateUserMarker(lat, lon);
+          resolveAddress(lat, lon);
+        }
+        toast.success(`Manzil topildi: ${data[0].display_name.split(',')[0]}`, { id: 'search-status' });
+      } else {
+        toast.info("Manzil topilmadi, xaritadan belgilang", { id: 'search-status' });
+      }
+    } catch (e) {
+      console.error("Address search error:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startVoiceInput = (target: 'search' | 'comment') => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Brauzeringizda ovozli diktovka (Web Speech) qo'llab-quvvatlanmaydi.");
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'uz-UZ';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      if (target === 'search') setIsListeningSearch(true);
+      else setIsListeningComment(true);
+
+      toast.info("Ovozingizni eshityapman, gapiring...", { id: 'voice-listen' });
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0]?.[0]?.transcript;
+        if (transcript) {
+          if (target === 'search') {
+            setSearchQuery(transcript);
+            handleSearchSubmit(transcript);
+          } else {
+            setDetails(prev => ({
+              ...prev,
+              comment: prev.comment ? `${prev.comment} ${transcript}` : transcript
+            }));
+            toast.success("Ovozli izoh saqlandi!", { id: 'voice-listen' });
+          }
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn("Speech recognition error:", event);
+        if (target === 'search') setIsListeningSearch(false);
+        else setIsListeningComment(false);
+        toast.error("Ovoz eshitilmadi yoki ruxsat berilmadi.");
+      };
+
+      recognition.onend = () => {
+        if (target === 'search') setIsListeningSearch(false);
+        else setIsListeningComment(false);
+      };
+
+      recognition.start();
+    } catch (e) {
+      console.error("Speech recognition start failed:", e);
+      setIsListeningSearch(false);
+      setIsListeningComment(false);
+    }
+  };
 
   // Initialize Map
   useEffect(() => {
@@ -174,14 +260,34 @@ const AddressModal: React.FC<Props> = ({ isOpen, onClose, onConfirm }) => {
             <div className="flex-grow flex flex-col overflow-hidden relative">
                 {/* Search overlay inside map area */}
                 <div className="absolute top-4 left-4 right-4 z-20">
-                    <div className="w-full h-14 bg-white/95 backdrop-blur shadow-lg rounded-2xl flex items-center px-4 border border-slate-100 focus-within:ring-2 focus-within:ring-red-500 transition-all">
-                        <Search className="text-slate-400 mr-3" size={20} />
+                    <form 
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            handleSearchSubmit();
+                        }}
+                        className="w-full h-14 bg-white/95 backdrop-blur shadow-lg rounded-2xl flex items-center px-4 border border-slate-100 focus-within:ring-2 focus-within:ring-red-500 transition-all gap-2"
+                    >
+                        <Search className="text-slate-400 shrink-0" size={20} />
                         <input 
                             type="text" 
-                            placeholder={t.searchAddress}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Manzilni qidiring yoki ovoz bering..."
                             className="flex-1 h-full outline-none text-sm bg-transparent font-medium"
                         />
-                    </div>
+                        <button
+                            type="button"
+                            onClick={() => startVoiceInput('search')}
+                            title="Ovoz orqali manzil qidirish"
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                                isListeningSearch
+                                    ? 'bg-red-600 text-white animate-pulse ring-4 ring-red-200'
+                                    : 'bg-slate-100 text-slate-600 hover:text-red-600 hover:bg-red-50'
+                            }`}
+                        >
+                            <Mic size={18} />
+                        </button>
+                    </form>
                 </div>
                 
                 <div className="flex-grow relative">
@@ -237,13 +343,22 @@ const AddressModal: React.FC<Props> = ({ isOpen, onClose, onConfirm }) => {
                         <div className="relative">
                             <input 
                                 type="text" 
-                                placeholder={t.comment} 
+                                placeholder={t.comment || "Kuryer uchun izoh (eshik kodi, qavat)..."} 
                                 className="w-full p-4 pr-14 bg-slate-50 rounded-2xl text-sm font-bold border border-slate-100 focus:bg-white focus:border-red-500 outline-none transition-all" 
                                 value={details.comment} 
                                 onChange={e=>setDetails({...details, comment: e.target.value})} 
                             />
-                            {/* Voice button icon as seen in screenshot */}
-                            <button className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-red-200 active:scale-95 transition-transform">
+                            {/* Voice button icon */}
+                            <button 
+                                type="button"
+                                onClick={() => startVoiceInput('comment')}
+                                title="Ovozli izoh qoldirish"
+                                className={`absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-md ${
+                                    isListeningComment 
+                                        ? 'bg-red-600 text-white animate-pulse ring-4 ring-red-300' 
+                                        : 'bg-red-600 text-white hover:bg-red-700 shadow-red-200 active:scale-95'
+                                }`}
+                            >
                                 <Mic size={20} />
                             </button>
                         </div>

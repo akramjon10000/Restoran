@@ -26,10 +26,36 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AppUser | null>(null);
   const [firebaseAuthReady, setFirebaseAuthReady] = useState(false);
-  const [currentAddress, setCurrentAddress] = useState<string>("Toshkent, Amir Temur 1");
+  const [currentAddress, setCurrentAddressState] = useState<string>(() => {
+    try {
+      return localStorage.getItem('restoran_address') || "Toshkent, Amir Temur 1";
+    } catch {
+      return "Toshkent, Amir Temur 1";
+    }
+  });
   const [deliveryFee, setDeliveryFee] = useState<number>(15000); // 15000 as default
-  const [orderType, setOrderType] = useState<'delivery' | 'pickup'>('delivery');
+  const [orderType, setOrderTypeState] = useState<'delivery' | 'pickup'>(() => {
+    try {
+      return (localStorage.getItem('restoran_order_type') as any) || 'delivery';
+    } catch {
+      return 'delivery';
+    }
+  });
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+
+  const setCurrentAddress = (address: string) => {
+    setCurrentAddressState(address);
+    try {
+      localStorage.setItem('restoran_address', address);
+    } catch {}
+  };
+
+  const setOrderType = (type: 'delivery' | 'pickup') => {
+    setOrderTypeState(type);
+    try {
+      localStorage.setItem('restoran_order_type', type);
+    } catch {}
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {

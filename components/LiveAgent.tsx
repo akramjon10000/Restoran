@@ -47,6 +47,21 @@ const confirmCheckoutDecl: FunctionDeclaration = {
   parameters: { type: Type.OBJECT, properties: {} }
 };
 
+const setDeliveryAddressDecl: FunctionDeclaration = {
+  name: 'setDeliveryAddress',
+  description: 'Set or update the customer delivery address when the user mentions their address, street, house, or landmark in Uzbekistan (e.g., "Yunusobod 4-mavze 12-uy", "Chilonzor 9 ga yetkazing").',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      address: {
+        type: Type.STRING,
+        description: 'The full delivery address stated by the customer.'
+      }
+    },
+    required: ['address']
+  }
+};
+
 const LiveAgent: React.FC = () => {
   const [active, setActive] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -55,6 +70,7 @@ const LiveAgent: React.FC = () => {
   
   const { addToCart, removeFromCart, items, total } = useCart();
   const { products } = useMenu();
+  const { currentAddress, setCurrentAddress, orderType, setOrderType } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -63,6 +79,10 @@ const LiveAgent: React.FC = () => {
   const productsRef = useRef(products);
   const itemsRef = useRef(items);
   const totalRef = useRef(total);
+  const currentAddressRef = useRef(currentAddress);
+  const setCurrentAddressRef = useRef(setCurrentAddress);
+  const orderTypeRef = useRef(orderType);
+  const setOrderTypeRef = useRef(setOrderType);
   const navigateRef = useRef(navigate);
   const locationRef = useRef(location);
   const speakingRef = useRef(false);
@@ -73,9 +93,13 @@ const LiveAgent: React.FC = () => {
     productsRef.current = products;
     itemsRef.current = items;
     totalRef.current = total;
+    currentAddressRef.current = currentAddress;
+    setCurrentAddressRef.current = setCurrentAddress;
+    orderTypeRef.current = orderType;
+    setOrderTypeRef.current = setOrderType;
     navigateRef.current = navigate;
     locationRef.current = location;
-  }, [addToCart, removeFromCart, products, items, total, navigate, location]);
+  }, [addToCart, removeFromCart, products, items, total, currentAddress, setCurrentAddress, orderType, setOrderType, navigate, location]);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const inputContextRef = useRef<AudioContext | null>(null);
@@ -185,6 +209,8 @@ const LiveAgent: React.FC = () => {
         Hozirgi sahifa: ${locationRef.current.pathname}
         Savatdagi mahsulotlar: ${cartContentsText}
         Savatning umumiy summasi: ${totalRef.current} so'm.
+        Yetkazib berish manzili: ${currentAddressRef.current || "Hali belgilanmagan"}
+        Yetkazish turi: ${orderTypeRef.current === 'delivery' ? 'Yetkazib berish' : 'Filialdan olib ketish'}
       `;
 
       const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
@@ -217,7 +243,7 @@ const LiveAgent: React.FC = () => {
           config: {
             responseModalities: [Modality.AUDIO],
             systemInstruction: dynamicInstruction,
-            tools: [{ functionDeclarations: [addToCartDecl, removeFromCartDecl, getCartStatusDecl, confirmCheckoutDecl] }],
+            tools: [{ functionDeclarations: [addToCartDecl, removeFromCartDecl, getCartStatusDecl, confirmCheckoutDecl, setDeliveryAddressDecl] }],
             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } }
           },
           callbacks: {
@@ -334,6 +360,22 @@ const LiveAgent: React.FC = () => {
                       } else if (fc.name === 'getCartStatus') {
                           const detailedItems = itemsRef.current.map(i => ({ name: i.name, quantity: i.quantity, price: i.price }));
                           result = { total: totalRef.current, count: itemsRef.current.reduce((a,b)=>a+b.quantity,0), items: detailedItems };
+                      } else if (fc.name === 'setDeliveryAddress') {
+                          const { address } = fc.args as any;
+                          if (address && String(address).trim()) {
+                              const cleanAddr = String(address).trim();
+                              setCurrentAddressRef.current(cleanAddr);
+                              setOrderTypeRef.current('delivery');
+                              try {
+                                  localStorage.setItem('restoran_address', cleanAddr);
+                                  localStorage.setItem('restoran_order_type', 'delivery');
+                              } catch (err) {}
+                              sound.playAddToCart();
+                              toast.success(`Yetkazib berish manzili: ${cleanAddr}`, { id: 'voice-address' });
+                              result = { success: true, message: `Yetkazib berish manzili qabul qilindi: ${cleanAddr}` };
+                          } else {
+                              result = { error: 'invalid_address', message: "Manzil aniqlanmadi, iltimos qayta ayting." };
+                          }
                       } else if (fc.name === 'confirmCheckout' || fc.name === 'confirmOrder') {
                           navigateRef.current('/cart');
                           result = { success: true };
