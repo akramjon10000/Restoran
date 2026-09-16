@@ -49,8 +49,45 @@ const Cart = () => {
   
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [guestPhone, setGuestPhone] = useState('');
-  const [guestName, setGuestName] = useState('');
+  const [guestPhone, setGuestPhone] = useState(() => {
+    try { return localStorage.getItem('restoran_guest_phone') || ''; } catch { return ''; }
+  });
+  const [guestName, setGuestName] = useState(() => {
+    try { return localStorage.getItem('restoran_guest_name') || ''; } catch { return ''; }
+  });
+
+  useEffect(() => {
+    if (user?.phone) setGuestPhone(user.phone);
+    if (user?.name) setGuestName(user.name);
+  }, [user]);
+
+  useEffect(() => {
+    const handleVoiceCustomerInfo = () => {
+      const savedPhone = localStorage.getItem('restoran_guest_phone') || '';
+      const savedName = localStorage.getItem('restoran_guest_name') || '';
+      if (savedPhone) setGuestPhone(savedPhone);
+      if (savedName) setGuestName(savedName);
+    };
+    window.addEventListener('customer-info-updated', handleVoiceCustomerInfo);
+    window.addEventListener('storage', handleVoiceCustomerInfo);
+    return () => {
+      window.removeEventListener('customer-info-updated', handleVoiceCustomerInfo);
+      window.removeEventListener('storage', handleVoiceCustomerInfo);
+    };
+  }, []);
+
+  const handleNameChange = (val: string) => {
+    setGuestName(val);
+    setError('');
+    try { localStorage.setItem('restoran_guest_name', val); } catch (e) {}
+  };
+
+  const handlePhoneChange = (val: string) => {
+    setGuestPhone(val);
+    setError('');
+    try { localStorage.setItem('restoran_guest_phone', val); } catch (e) {}
+  };
+
   const [paymentMethod, setPaymentMethod] = useState<PaymentType>('cash');
   const [promoCode, setPromoCode] = useState('');
   const [discount, setDiscount] = useState(0);
@@ -658,25 +695,52 @@ const Cart = () => {
               </div>
             </div>
 
-            {/* Guest Contact Inputs */}
-            {!user && (
+            {/* Guest / User Contact Inputs */}
+            {user ? (
               <div className="space-y-3 pt-3 border-t border-slate-100">
                 <h3 className="font-black text-slate-900 uppercase text-xs tracking-wider flex items-center gap-1.5">
                   <UserIcon size={15} className="text-red-600" /> Qabul qiluvchi ma'lumotlari
                 </h3>
+                <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-sm">
+                      {user.name ? user.name[0].toUpperCase() : 'M'}
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-slate-900">{user.name || 'Mijoz'}</p>
+                      <p className="text-[11px] text-emerald-800 font-bold">{user.phone}</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">
+                    Tayyor ✓
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-black text-slate-900 uppercase text-xs tracking-wider flex items-center gap-1.5">
+                    <UserIcon size={15} className="text-red-600" /> Qabul qiluvchi ma'lumotlari
+                  </h3>
+                  {guestName && guestPhone.length >= 9 && (
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      Ovoz bilan kiritildi ✓
+                    </span>
+                  )}
+                </div>
                 <Input 
                   type="text" 
                   placeholder={t.namePlaceholder} 
                   className="w-full h-11 bg-slate-50 rounded-xl border-slate-200 font-bold text-xs"
                   value={guestName}
-                  onChange={e => { setGuestName(e.target.value); setError(''); }}
+                  onChange={e => handleNameChange(e.target.value)}
                 />
                 <Input 
                   type="tel" 
                   placeholder="+998 (90) 123-45-67" 
                   className="w-full h-11 bg-slate-50 rounded-xl border-slate-200 font-bold text-xs"
                   value={guestPhone}
-                  onChange={e => { setGuestPhone(e.target.value); setError(''); }}
+                  onChange={e => handlePhoneChange(e.target.value)}
                 />
                 {error && <p className="text-[11px] text-red-500 font-bold">{error}</p>}
               </div>

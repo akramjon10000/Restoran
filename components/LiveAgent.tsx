@@ -4,6 +4,8 @@ import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type } f
 import { useCart } from '../context/CartContext';
 import { useMenu } from '../context/MenuContext';
 import { useAuth } from '../context/AuthContext';
+import { useOrders } from '../context/OrderContext';
+import { useLoyalty } from '../context/LoyaltyContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DEFAULT_SYSTEM_INSTRUCTION, DEFAULT_LIVE_MODEL, LIVE_FALLBACK_MODELS } from '../constants';
 import { createBlob, decode, decodeAudioData, encode } from '../utils/audio';
@@ -43,13 +45,13 @@ const getCartStatusDecl: FunctionDeclaration = {
 
 const confirmCheckoutDecl: FunctionDeclaration = {
   name: 'confirmCheckout',
-  description: 'Navigate the user to the cart/checkout page. MUST ONLY BE CALLED AFTER reading the cart contents to the user and getting their final confirmation.',
+  description: 'Navigate the user to the cart/checkout page.',
   parameters: { type: Type.OBJECT, properties: {} }
 };
 
 const setDeliveryAddressDecl: FunctionDeclaration = {
   name: 'setDeliveryAddress',
-  description: 'Set or update the customer delivery address when the user mentions their address, street, house, or landmark in Uzbekistan (e.g., "Yunusobod 4-mavze 12-uy", "Chilonzor 9 ga yetkazing").',
+  description: 'Set or update the customer delivery address when the user mentions their address, street, house, or landmark in Uzbekistan (e.g., "Yunusobod 4-mavze 12-uy", "Nurafshon ko\'chasi").',
   parameters: {
     type: Type.OBJECT,
     properties: {
@@ -62,27 +64,63 @@ const setDeliveryAddressDecl: FunctionDeclaration = {
   }
 };
 
+const setCustomerInfoDecl: FunctionDeclaration = {
+  name: 'setCustomerInfo',
+  description: 'Save customer recipient contact info: full name and phone number.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      name: { type: Type.STRING, description: 'Customer first or full name (e.g., "Akramjon", "Alisher").' },
+      phone: { type: Type.STRING, description: 'Customer phone number (e.g., "+998901234567" or "90 123 45 67").' }
+    },
+    required: ['phone']
+  }
+};
+
+const completeOrderDecl: FunctionDeclaration = {
+  name: 'completeOrder',
+  description: 'SUBMIT AND FINALIZE the order to the kitchen. Call this after customer confirms their order, products, delivery address, name, and phone number.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      customerName: { type: Type.STRING, description: 'Customer name (optional if already provided).' },
+      phoneNumber: { type: Type.STRING, description: 'Customer phone number (optional if already provided).' },
+      paymentMethod: { type: Type.STRING, description: 'Payment method: "cash" (naqd pul), "click", or "payme". Default is "cash".' },
+      orderNote: { type: Type.STRING, description: 'Special delivery or kitchen instructions.' }
+    }
+  }
+};
+
 const LiveAgent: React.FC = () => {
   const [active, setActive] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const { addToCart, removeFromCart, items, total } = useCart();
+  const { addToCart, removeFromCart, clearCart, items, total } = useCart();
   const { products } = useMenu();
-  const { currentAddress, setCurrentAddress, orderType, setOrderType } = useAuth();
+  const { user, login, currentAddress, setCurrentAddress, orderType, setOrderType, selectedBranch, deliveryFee } = useAuth();
+  const { placeOrder } = useOrders();
+  const { earnPoints } = useLoyalty();
   const navigate = useNavigate();
   const location = useLocation();
 
   const addToCartRef = useRef(addToCart);
   const removeFromCartRef = useRef(removeFromCart);
+  const clearCartRef = useRef(clearCart);
   const productsRef = useRef(products);
   const itemsRef = useRef(items);
   const totalRef = useRef(total);
+  const userRef = useRef(user);
+  const loginRef = useRef(login);
   const currentAddressRef = useRef(currentAddress);
   const setCurrentAddressRef = useRef(setCurrentAddress);
   const orderTypeRef = useRef(orderType);
   const setOrderTypeRef = useRef(setOrderType);
+  const selectedBranchRef = useRef(selectedBranch);
+  const deliveryFeeRef = useRef(deliveryFee);
+  const placeOrderRef = useRef(placeOrder);
+  const earnPointsRef = useRef(earnPoints);
   const navigateRef = useRef(navigate);
   const locationRef = useRef(location);
   const speakingRef = useRef(false);
@@ -90,16 +128,23 @@ const LiveAgent: React.FC = () => {
   useEffect(() => {
     addToCartRef.current = addToCart;
     removeFromCartRef.current = removeFromCart;
+    clearCartRef.current = clearCart;
     productsRef.current = products;
     itemsRef.current = items;
     totalRef.current = total;
+    userRef.current = user;
+    loginRef.current = login;
     currentAddressRef.current = currentAddress;
     setCurrentAddressRef.current = setCurrentAddress;
     orderTypeRef.current = orderType;
     setOrderTypeRef.current = setOrderType;
+    selectedBranchRef.current = selectedBranch;
+    deliveryFeeRef.current = deliveryFee;
+    placeOrderRef.current = placeOrder;
+    earnPointsRef.current = earnPoints;
     navigateRef.current = navigate;
     locationRef.current = location;
-  }, [addToCart, removeFromCart, products, items, total, currentAddress, setCurrentAddress, orderType, setOrderType, navigate, location]);
+  }, [addToCart, removeFromCart, clearCart, products, items, total, user, login, currentAddress, setCurrentAddress, orderType, setOrderType, selectedBranch, deliveryFee, placeOrder, earnPoints, navigate, location]);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const inputContextRef = useRef<AudioContext | null>(null);
@@ -199,6 +244,9 @@ const LiveAgent: React.FC = () => {
         ? itemsRef.current.map(i => `${i.quantity} ta ${i.name}`).join(', ') 
         : "Savat bo'm-bo'sh";
 
+      const currentUserName = userRef.current?.name || localStorage.getItem('restoran_guest_name') || '';
+      const currentUserPhone = userRef.current?.phone || localStorage.getItem('restoran_guest_phone') || '';
+
       const dynamicInstruction = `
         ${savedInstruction}
         
@@ -211,6 +259,8 @@ const LiveAgent: React.FC = () => {
         Savatning umumiy summasi: ${totalRef.current} so'm.
         Yetkazib berish manzili: ${currentAddressRef.current || "Hali belgilanmagan"}
         Yetkazish turi: ${orderTypeRef.current === 'delivery' ? 'Yetkazib berish' : 'Filialdan olib ketish'}
+        Mijoz ismi: ${currentUserName || "Hali aytilmagan"}
+        Mijoz telefoni: ${currentUserPhone || "Hali aytilmagan"}
       `;
 
       const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
@@ -243,7 +293,7 @@ const LiveAgent: React.FC = () => {
           config: {
             responseModalities: [Modality.AUDIO],
             systemInstruction: dynamicInstruction,
-            tools: [{ functionDeclarations: [addToCartDecl, removeFromCartDecl, getCartStatusDecl, confirmCheckoutDecl, setDeliveryAddressDecl] }],
+            tools: [{ functionDeclarations: [addToCartDecl, removeFromCartDecl, getCartStatusDecl, confirmCheckoutDecl, setDeliveryAddressDecl, setCustomerInfoDecl, completeOrderDecl] }],
             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } }
           },
           callbacks: {
@@ -375,6 +425,93 @@ const LiveAgent: React.FC = () => {
                               result = { success: true, message: `Yetkazib berish manzili qabul qilindi: ${cleanAddr}` };
                           } else {
                               result = { error: 'invalid_address', message: "Manzil aniqlanmadi, iltimos qayta ayting." };
+                          }
+                      } else if (fc.name === 'setCustomerInfo') {
+                          const { name, phone } = fc.args as any;
+                          const cleanName = String(name || '').trim();
+                          const cleanPhone = String(phone || '').replace(/[^\d+]/g, '').trim();
+                          if (cleanPhone && cleanPhone.length >= 7) {
+                              loginRef.current(cleanPhone, cleanName || 'Mijoz');
+                              try {
+                                  localStorage.setItem('restoran_guest_name', cleanName || 'Mijoz');
+                                  localStorage.setItem('restoran_guest_phone', cleanPhone);
+                                  window.dispatchEvent(new CustomEvent('customer-info-updated'));
+                              } catch(e) {}
+                              sound.playAddToCart();
+                              toast.success(`Qabul qiluvchi: ${cleanName || 'Mijoz'} (${cleanPhone})`, { id: 'voice-customer' });
+                              result = { success: true, message: `Ma'lumotlaringiz saqlandi: ${cleanName || 'Mijoz'}, ${cleanPhone}` };
+                          } else {
+                              result = { error: 'invalid_phone', message: "Telefon raqam aniqlanmadi. Iltimos telefon raqamingizni ayting." };
+                          }
+                      } else if (fc.name === 'completeOrder') {
+                          const { customerName, phoneNumber, paymentMethod, orderNote } = (fc.args as any) || {};
+                          if (itemsRef.current.length === 0) {
+                              result = { error: 'empty_cart', message: "Savatingiz bo'sh. Iltimos taom tanlang." };
+                          } else {
+                              let finalName = customerName || userRef.current?.name || localStorage.getItem('restoran_guest_name') || '';
+                              let finalPhone = phoneNumber || userRef.current?.phone || localStorage.getItem('restoran_guest_phone') || '';
+                              finalName = String(finalName).trim();
+                              finalPhone = String(finalPhone).trim();
+
+                              if (!finalPhone || finalPhone.replace(/[^\d]/g, '').length < 7) {
+                                  navigateRef.current('/cart');
+                                  result = { 
+                                      error: 'missing_phone', 
+                                      message: "Buyurtmani yakunlash uchun telefon raqamingiz kerak. Iltimos telefon raqamingizni ayting." 
+                                  };
+                              } else {
+                                  if (!finalName) finalName = 'Mijoz';
+                                  loginRef.current(finalPhone, finalName);
+                                  try {
+                                      localStorage.setItem('restoran_guest_name', finalName);
+                                      localStorage.setItem('restoran_guest_phone', finalPhone);
+                                      window.dispatchEvent(new CustomEvent('customer-info-updated'));
+                                  } catch(e) {}
+
+                                  const FREE_THRESHOLD = 150000;
+                                  const activeDeliveryFee = totalRef.current >= FREE_THRESHOLD ? 0 : (orderTypeRef.current === 'delivery' ? (deliveryFeeRef.current || 15000) : 0);
+                                  const finalTotal = totalRef.current + activeDeliveryFee;
+                                  const finalAddress = orderTypeRef.current === 'delivery' 
+                                      ? (currentAddressRef.current || "Toshkent shahar") 
+                                      : (selectedBranchRef.current?.name || "Filialdan olib ketish");
+
+                                  const paymentMethodNorm = String(paymentMethod || 'cash').toLowerCase();
+                                  const paymentLabel = paymentMethodNorm.includes('click') 
+                                      ? 'Click Online' 
+                                      : (paymentMethodNorm.includes('payme') ? 'Payme Online' : 'Naqd pul (Yetkazilganda)');
+
+                                  try {
+                                      const createdOrder = await placeOrderRef.current(
+                                          itemsRef.current,
+                                          finalTotal,
+                                          0,
+                                          finalAddress,
+                                          finalPhone,
+                                          finalName,
+                                          paymentLabel,
+                                          activeDeliveryFee,
+                                          {
+                                              deliveryTimeType: 'asap',
+                                              orderNote: orderNote || 'Ovozli yordamchi orqali rasmiylashtirildi'
+                                          }
+                                      );
+
+                                      earnPointsRef.current(finalTotal);
+                                      clearCartRef.current();
+                                      sound.playOrderSuccess();
+                                      toast.success(`Buyurtma #${createdOrder.id.slice(0, 5).toUpperCase()} qabul qilindi! 🎉`, { duration: 6000 });
+
+                                      navigateRef.current('/profile');
+                                      result = { 
+                                          success: true, 
+                                          orderId: createdOrder.id, 
+                                          message: `Buyurtmangiz #${createdOrder.id.slice(0, 5).toUpperCase()} raqami bilan qabul qilindi va oshxonaga yuborildi! Tez orada yetkazib beramiz.` 
+                                      };
+                                  } catch (orderErr) {
+                                      console.error("Voice order error:", orderErr);
+                                      result = { error: 'order_failed', message: "Buyurtmani rasmiylashtirishda xatolik yuz berdi. Qayta urinib ko'ring." };
+                                  }
+                              }
                           }
                       } else if (fc.name === 'confirmCheckout' || fc.name === 'confirmOrder') {
                           navigateRef.current('/cart');
