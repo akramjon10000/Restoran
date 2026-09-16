@@ -1,0 +1,11 @@
+{
+  "name": "Restoran Voice AI Delivery",
+  "description": "A restaurant styled food delivery application featuring a real-time Gemini Live voice assistant for ordering.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "category": {
+      "title": "Category",
+      "description": "Product category",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "image": { "type": "string" }
+      },
+      "required": ["name", "image"]
+    },
+    "product": {
+      "title": "Product",
+      "description": "Menu item",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "image": { "type": "string" },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "category": { "type": "string" },
+        "popular": { "type": "boolean" },
+        "calories": { "type": "string" },
+        "weight": { "type": "string" },
+        "ingredients": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["name", "description", "price", "image", "category"]
+    },
+    "order": {
+      "title": "Order",
+      "description": "Customer order",
+      "type": "object",
+      "properties": {
+        "items": { "type": "array" },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["new", "cooking", "delivering", "completed"] },
+        "date": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "userName": { "type": "string" }
+      },
+      "required": ["items", "total", "status", "date", "address", "phone", "paymentMethod"]
+    }
+  },
+  "firestore": {
+    "categories": {
+      "schema": { "$ref": "#/entities/category" },
+      "description": "Stores menu categories"
+    },
+    "menu": {
+      "schema": { "$ref": "#/entities/product" },
+      "description": "Stores individual menu items"
+    },
+    "orders": {
+      "schema": { "$ref": "#/entities/order" },
+      "description": "Stores user orders"
+    }
+  }
+}

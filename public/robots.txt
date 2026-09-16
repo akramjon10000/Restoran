@@ -1,0 +1,7 @@
+# Robots.txt for Restoran Uzbekistan Delivery
+User-agent: *
+Allow: /
+Disallow: /#/admin
+Disallow: /#/courier
+
+Sitemap: https://restoran.uz/sitemap.xml

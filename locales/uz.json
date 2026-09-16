@@ -1,0 +1,46 @@
+{
+  "nav": {
+    "home": "Asosiy",
+    "menu": "Menyu",
+    "cart": "Savatcha",
+    "profile": "Profil"
+  },
+  "home": {
+    "greeting_part1": "Sizning sevimli",
+    "greeting_part2": "ovqatingiz",
+    "greeting_part3": "tez yetkazib beriladi",
+    "search_placeholder": "Ovqat yoki ichimlik qidiring...",
+    "categories": "Kategoriyalar",
+    "popular": "Ommabop Taomlar",
+    "add_to_cart": "Qo'shish",
+    "checkout": "Sotib olish"
+  },
+  "menu": {
+    "title": "Bizning Menyu"
+  },
+  "cart": {
+    "title": "Sizning Savatchangiz",
+    "empty": "Savatchada hozircha hech narsa yo'q",
+    "promo_code": "Promokod (ixtiyoriy)",
+    "apply": "Qo'llash",
+    "total": "Jami",
+    "delivery_address": "Yetkazib berish manzili:",
+    "enter_address": "Manzilni kiriting",
+    "checkout": "Buyurtma berish"
+  },
+  "profile": {
+    "title": "Profil",
+    "login": "Kirish",
+    "logout": "Chiqish",
+    "phone": "Telefon raqamingizni kiriting",
+    "address": "Manzilingizni kiriting",
+    "save": "Saqlash",
+    "past_orders": "Oldingi buyurtmalar",
+    "no_orders": "Sizda buyurtmalar yo'q",
+    "driver_panel": "Haydovchi paneli",
+    "admin_panel": "Admin panel"
+  },
+  "common": {
+    "language": "Tilni tanlang"
+  }
+}

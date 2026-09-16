@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="uz">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- Primary Meta Tags -->
+    <title>Restoran Uzbekistan | Onlayn Taom Buyurtma Qilish | Tezkor Yetkazish</title>
+    <meta name="title" content="Restoran Uzbekistan | Onlayn Taom Buyurtma Qilish | Tezkor Yetkazish" />
+    <meta name="description" content="Restoran Uzbekistan - mazali burgerlar, qarsildoq qanotchalar, tovuq savatlari va ichimliklarni Toshkent bo'ylab 30 daqiqada yetkazib berish. AI ovozli buyurtma va keshbek tizimi." />
+    <meta name="keywords" content="restoran yetkazib berish, ovqat yetkazish toshkent, fast food uzbekistan, burger buyurtma qilish, ovozli ai buyurtma, kfc toshkent delivery, lavash, somsa, milliy taomlar" />
+    <meta name="author" content="Restoran Uzbekistan" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://restoran.uz/" />
+
+    <!-- Geo Tags for Local SEO (Tashkent, Uzbekistan) -->
+    <meta name="geo.region" content="UZ-TK" />
+    <meta name="geo.placename" content="Tashkent" />
+    <meta name="geo.position" content="41.311151;69.279737" />
+    <meta name="ICBM" content="41.311151, 69.279737" />
+
+    <!-- Open Graph / Facebook / Telegram Sharing -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://restoran.uz/" />
+    <meta property="og:title" content="Restoran Uzbekistan | Mazali Taomlar va Tezkor Yetkazish" />
+    <meta property="og:description" content="Eng mazali burgerlar va tovuq savatlari. Ovoz orqali buyurtma bering va har bir xariddan 8% gacha keshbek oling!" />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1513639776629-7b611d22f654?auto=format&fit=crop&q=80&w=1200" />
+    <meta property="og:locale" content="uz_UZ" />
+    <meta property="og:site_name" content="Restoran Uzbekistan" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://restoran.uz/" />
+    <meta name="twitter:title" content="Restoran Uzbekistan | Mazali Taomlar va Tezkor Yetkazish" />
+    <meta name="twitter:description" content="Eng mazali burgerlar va tovuq savatlari. Ovoz orqali buyurtma bering va keshbek oling!" />
+    <meta name="twitter:image" content="https://images.unsplash.com/photo-1513639776629-7b611d22f654?auto=format&fit=crop&q=80&w=1200" />
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#dc2626" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Restoran" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/pwa-192x192.png" />
+    
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <style>
+      .hide-scrollbar::-webkit-scrollbar { display: none; }
+      .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+      .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased selection:bg-red-100 selection:text-red-600">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

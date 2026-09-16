@@ -1,0 +1,11 @@
+services:
+  restoran-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: restoran-voice-ai-app
+    restart: unless-stopped
+    ports:
+      - "3030:80"
+    environment:
+      - NODE_ENV=production
